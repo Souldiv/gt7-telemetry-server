@@ -7,6 +7,9 @@ license = "GPL-3.0-or-later"
 description = "A server for GT7 telemetry data processing."
 
 [dependencies]
+byteorder = "1.5.0"
+salsa20 = "0.10.2"
+tokio = { version = "1", features = ["rt", "net", "macros", "rt-multi-thread", "time"] }
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
