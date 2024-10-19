@@ -2,6 +2,7 @@
 name = "gt7_server"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/Souldiv/gt7-telemetry-server"
 
 [dependencies]
 
