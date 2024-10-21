@@ -1,12 +1,20 @@
 [package]
 name = "gt7_server"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 repository = "https://github.com/Souldiv/gt7-telemetry-server"
 license = "GPL-3.0-or-later"
 description = "A server for GT7 telemetry data processing."
 
 [dependencies]
+byteorder = "1.5.0"
+salsa20 = "0.10.2"
+serde_json = "1.0.132"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt", "net", "macros", "rt-multi-thread", "time", "sync"] }
+warp = "0.3.7"
+futures = "0.3.31"
+tokio-stream = { version = "0.1.10", features = ["sync"] }
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
