@@ -1,14 +1,17 @@
-use tokio::net::UdpSocket;
-use tokio::io::{self, Interest};
 use byteorder::{ByteOrder, LittleEndian};
-use crate::socket_server::helper;
+use tokio::io::{self, Interest};
+use tokio::net::UdpSocket;
 use tokio::time::{self, Duration};
+use tokio::sync::broadcast;
+use crate::gt_data::GTData;
+use crate::socket_server::helper;
 
 pub struct SocketServer {
     recv_port: u16,
     send_port: u16,
     playstation_ip: String,
     socket: Option<UdpSocket>,
+    tx: broadcast::Sender<GTData>,
 }
 
 impl Drop for SocketServer {
@@ -18,9 +21,20 @@ impl Drop for SocketServer {
 }
 
 impl SocketServer {
-    pub async fn new(recv_port: u16, send_port: u16, playstation_ip: String) -> std::io::Result<SocketServer> {
+    pub async fn new(
+        recv_port: u16,
+        send_port: u16,
+        playstation_ip: String,
+        tx: broadcast::Sender<GTData>
+    ) -> std::io::Result<SocketServer> {
         let socket = Some(UdpSocket::bind(format!("0.0.0.0:{}", recv_port)).await?);
-        Ok(SocketServer { recv_port, send_port, playstation_ip, socket })
+        Ok(SocketServer {
+            recv_port,
+            send_port,
+            playstation_ip,
+            socket,
+            tx
+        })
     }
 
     pub async fn run(&mut self) -> std::io::Result<()> {
@@ -64,8 +78,11 @@ impl SocketServer {
                         let decrypted_data = helper::salsa20_dec(buf);
                         if !decrypted_data.is_empty() && LittleEndian::read_i32(&decrypted_data[0x70..0x74]) > package_id {
                             // Your logic here
-                            println!("Package ID: {} Package nr: {}", LittleEndian::read_i32(&decrypted_data[0x70..0x74]), package_nr);
+                            // println!("Package ID: {} Package nr: {}", LittleEndian::read_i32(&decrypted_data[0x70..0x74]), package_nr);
                             package_id = LittleEndian::read_i32(&decrypted_data[0x70..0x74]);
+                            let gt_data = GTData::new(&decrypted_data);
+                            // print!("\r{:?}", gt_data);
+                            let _ = self.tx.send(gt_data);
                         }
                     }
                 }
@@ -90,9 +107,15 @@ impl SocketServer {
     }
 
     async fn send_heartbeat(&self) {
-        let _ = match self.socket.as_ref().unwrap().send_to(b"A", format!("{}:{}", self.playstation_ip, self.send_port)).await {
+        let _ = match self
+            .socket
+            .as_ref()
+            .unwrap()
+            .send_to(b"A", format!("{}:{}", self.playstation_ip, self.send_port))
+            .await
+        {
             Ok(r_size) => {
-                println!("Heartbeat sent, size: {}", r_size);
+                // println!("Heartbeat sent, size: {}", r_size);
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(e) => {
