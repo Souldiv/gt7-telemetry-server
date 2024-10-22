@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Data Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        /* Flexbox container for the graph and the data */
+        .content {
+            display: flex;
+            justify-content: space-between;
+            width: 1000px;
+        }
+        .dashboard {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 65%; /* Adjust the width of the graph */
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-right: 20px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+        }
+        .data-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 30%; /* Adjust the width of the data box */
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+        }
+        .data-box p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Controls for adjusting the window size -->
+    <div class="controls">
+        <label for="timeWindow">Time Window (seconds):</label>
+        <input type="number" id="timeWindow" value="30" min="1">
+        <button onclick="updateWindowSize()">Update Window</button>
+    </div>
+
+    <div class="content">
+        <div class="dashboard" id="dashboard">
+            <h3>Live Data Dashboard (Throttle and Brake)</h3>
+        </div>
+
+        <div class="data-box" id="dataBox">
+            <h3>Latest Data</h3>
+            <div id="latestData"></div> <!-- Container for the latest values -->
+        </div>
+    </div>
+
+    <script>
+        let throttleData = [];
+        let brakeData = [];
+        let startTime = Date.now();
+        let MAX_TIME_WINDOW = 10; // Default time window, adjustable by user
+
+        const margin = { top: 20, right: 30, bottom: 30, left: 40 },
+              width = 650 - margin.left - margin.right, // Adjust width to fit new layout
+              height = 400 - margin.top - margin.bottom;
+
+        const svg = d3.select("#dashboard").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear().range([0, width]);
+        const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+
+        svg.append("g").attr("class", "x-axis").attr("transform", `translate(0,${height})`);
+        svg.append("g").attr("class", "y-axis").call(d3.axisLeft(y));
+
+        // Add a legend to the graph
+        svg.append("text")
+            .attr("x", width - 100)
+            .attr("y", 20)
+            .attr("fill", "blue")
+            .text("Throttle");
+
+        svg.append("text")
+            .attr("x", width - 100)
+            .attr("y", 40)
+            .attr("fill", "red")
+            .text("Brake");
+
+        const addDataPoint = (newThrottle, newBrake, time) => {
+            throttleData.push({ value: newThrottle, time });
+            brakeData.push({ value: newBrake, time });
+
+            throttleData = throttleData.filter(d => d.time >= time - MAX_TIME_WINDOW);
+            brakeData = brakeData.filter(d => d.time >= time - MAX_TIME_WINDOW);
+        };
+
+        const updateChart = () => {
+            const latestTime = throttleData.length > 0 ? throttleData[throttleData.length - 1].time : 0;
+            const minTime = Math.max(0, latestTime - MAX_TIME_WINDOW);
+
+            x.domain([minTime, latestTime]);
+
+            const throttleLine = d3.line().x(d => x(d.time)).y(d => y(d.value));
+            const brakeLine = d3.line().x(d => x(d.time)).y(d => y(d.value));
+
+            svg.selectAll(".line").remove();
+
+            svg.append("path").datum(throttleData).attr("class", "line")
+                .attr("d", throttleLine).style("stroke", "blue").style("fill", "none");
+
+            svg.append("path").datum(brakeData).attr("class", "line")
+                .attr("d", brakeLine).style("stroke", "red").style("fill", "none");
+
+            svg.select(".x-axis").call(d3.axisBottom(x));
+        };
+
+        const updateLatestData = (newData) => {
+            const dataContainer = document.getElementById('latestData');
+            dataContainer.innerHTML = `
+                <p>Angular Velocity X: ${newData.angular_velocity_x}</p>
+                <p>Angular Velocity Y: ${newData.angular_velocity_y}</p>
+                <p>Angular Velocity Z: ${newData.angular_velocity_z}</p>
+                <p>Boost: ${newData.boost}</p>
+                <p>Car Speed: ${newData.car_speed}</p>
+                <p>Current Gear: ${newData.current_gear}</p>
+                <p>Fuel: ${newData.current_fuel}</p>
+                <p>RPM: ${newData.rpm}</p>
+                <p>Position X: ${newData.position_x}</p>
+                <p>Position Y: ${newData.position_y}</p>
+                <p>Position Z: ${newData.position_z}</p>
+                <p>Tyre Temp FL: ${newData.tyre_temp_FL}</p>
+                <p>Tyre Temp FR: ${newData.tyre_temp_FR}</p>
+                <p>Tyre Temp RL: ${newData.tyre_temp_rl}</p>
+                <p>Tyre Temp RR: ${newData.tyre_temp_rr}</p>
+                <p>Water Temp: ${newData.water_temp}</p>
+            `;
+        };
+
+        const connectWebSocket = () => {
+            const ws = new WebSocket('ws://localhost:8080/ws');
+
+            ws.onmessage = (event) => {
+                const newData = JSON.parse(event.data);
+                const relativeTime = (Date.now() - startTime) / 1000;
+
+                // Add throttle and brake data to the graph
+                addDataPoint(newData.throttle, newData.brake, relativeTime);
+                updateChart();
+
+                // Update the latest data box with current values
+                updateLatestData(newData);
+            };
+
+            ws.onclose = () => setTimeout(connectWebSocket, 2000);
+            ws.onerror = console.error;
+        };
+
+        const updateWindowSize = () => {
+            const newWindowSize = document.getElementById('timeWindow').value;
+            MAX_TIME_WINDOW = parseInt(newWindowSize) || 30; // Update the window size based on user input
+        };
+
+        connectWebSocket();
+    </script>
+</body>
+</html>

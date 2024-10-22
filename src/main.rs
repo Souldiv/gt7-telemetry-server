@@ -27,6 +27,19 @@ async fn main() -> std::io::Result<()> {
         socket_server.run().await
     });
 
+    // logs for server
+    let log = warp::log::custom(|info| {
+        // Use a log macro, or slog, or println, or whatever!
+        println!(
+            "{} {} {} {}",
+            info.remote_addr().unwrap(),
+            info.method(),
+            info.path(),
+            info.status(),
+        );
+    });
+
+    // server
     let ws_addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     let health_route = warp::path!("health").and_then(handler::health_handler);
     let ws_route = warp::path("ws")
@@ -36,7 +49,8 @@ async fn main() -> std::io::Result<()> {
 
     let routes = health_route
         .or(ws_route)
-        .with(warp::cors().allow_any_origin());
+        .with(warp::cors().allow_any_origin())
+        .with(log);
     let server = warp::serve(routes).bind(ws_addr);
 
     println!("Server started on {}", ws_addr);
