@@ -124,10 +124,16 @@ impl GTData {
         data.current_position = LittleEndian::read_i16(&ddata[0x84..0x86]);
         data.total_positions = LittleEndian::read_i16(&ddata[0x86..0x88]);
         data.car_id = LittleEndian::read_i32(&ddata[0x124..0x128]);
-        data.throttle = (LittleEndian::read_u16(&ddata[0x90..0x92]) as f32 / 2.55) * 100.0;
+
+        let throttle_raw = ddata[0x91];
+        data.throttle = throttle_raw as f32 / 2.55;
+
         data.rpm = LittleEndian::read_f32(&ddata[0x3C..0x40]);
         data.rpm_rev_warning = LittleEndian::read_u16(&ddata[0x88..0x8A]);
-        data.brake = (LittleEndian::read_u16(&ddata[0x90..0x92]) as f32 / 2.55) * 100.0;
+
+        let brake_raw = ddata[0x92];
+        data.brake = brake_raw as f32 / 2.55;
+
         data.rpm_rev_limiter = LittleEndian::read_u16(&ddata[0x8A..0x8C]);
         data.estimated_top_speed = LittleEndian::read_i16(&ddata[0x8C..0x8E]);
         data.clutch = LittleEndian::read_f32(&ddata[0xF4..0xF8]);
