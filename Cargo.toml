@@ -3,7 +3,7 @@ name = "gt7_server"
 version = "1.0.0"
 edition = "2021"
 repository = "https://github.com/Souldiv/gt7-telemetry-server"
-license = "GPL-3.0-or-later"
+license = "MIT"
 description = "A server for GT7 telemetry data processing."
 
 [dependencies]
