@@ -1,6 +1,6 @@
 [package]
 name = "gt7_server"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 repository = "https://github.com/Souldiv/gt7-telemetry-server"
 license = "MIT"
