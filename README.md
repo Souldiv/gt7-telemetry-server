@@ -2,6 +2,10 @@
 
 GT7 Telemetry Server is a server that listens for data from a GT7 UDP socket server and broadcasts decrypted data to a WebSocket server for easy consumption by a frontend.
 
+## Installation
+
+Follow the instructions in the release section to install the server.
+
 ## Todo
 
 - [ ] Add option to send data to InfluxDB for consumption by Grafana
@@ -30,10 +34,8 @@ Access the dashboard at `http://localhost:8080`.
 
 ## Usage
 
-Needs further improvements to edit binding ports and IP addresses.
-
 ```
-cargo run
+gt7_server <playstation_ip: Default 192.168.1.85> <websocket_port: Default 8080>
 ```
 
 ## References

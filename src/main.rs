@@ -14,6 +14,7 @@ use tokio::sync::broadcast;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    println!("🚀 GT7 telemetry server version {} 🚀", env!("CARGO_PKG_VERSION"));
     // get args
     let mut playstation_ip: String;
     let mut ws_port: u16;
