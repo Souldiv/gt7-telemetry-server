@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Data Dashboard</title>
+    <title>Live Data Dashboard with Track</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
@@ -19,30 +19,33 @@
         .controls {
             margin-bottom: 20px;
         }
-        /* Flexbox container for the graph and the data */
         .content {
             display: flex;
             justify-content: space-between;
             width: 1000px;
         }
-        .dashboard {
+        .dashboard, .track {
             border: 1px solid #ccc;
             padding: 10px;
-            width: 65%; /* Adjust the width of the graph */
             background-color: #fff;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             margin-right: 20px;
             border-radius: 5px;
             font-family: Arial, sans-serif;
         }
+        .dashboard {
+            width: 65%;
+        }
+        .track {
+            width: 30%;
+        }
         .data-box {
             border: 1px solid #ccc;
             padding: 10px;
-            width: 30%; /* Adjust the width of the data box */
+            width: 100%;
             background-color: #fff;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             border-radius: 5px;
-            font-family: Arial, sans-serif;
         }
         .data-box p {
             margin: 5px 0;
@@ -58,25 +61,36 @@
     </div>
 
     <div class="content">
+        <!-- Dashboard for Throttle and Brake -->
         <div class="dashboard" id="dashboard">
             <h3>Live Data Dashboard (Throttle and Brake)</h3>
         </div>
 
-        <div class="data-box" id="dataBox">
-            <h3>Latest Data</h3>
-            <div id="latestData"></div> <!-- Container for the latest values -->
+        <!-- Track Plot -->
+        <div class="track" id="track">
+            <h3>Track Visualization (Position X and Z)</h3>
         </div>
+    </div>
+
+    <div class="data-box" id="dataBox">
+        <h3>Latest Data</h3>
+        <div id="latestData"></div> <!-- Container for the latest values -->
     </div>
 
     <script>
         let throttleData = [];
         let brakeData = [];
+        let positionData = []; // Store position data (X, Z, throttle, brake)
         let startTime = Date.now();
         let MAX_TIME_WINDOW = 10; // Default time window, adjustable by user
 
+        // Define margins and dimensions for the throttle and brake graph
         const margin = { top: 20, right: 30, bottom: 30, left: 40 },
-              width = 650 - margin.left - margin.right, // Adjust width to fit new layout
+              width = 650 - margin.left - margin.right,
               height = 400 - margin.top - margin.bottom;
+
+        // Define margins and dimensions for the track plot
+        const trackWidth = 300, trackHeight = 300;
 
         const svg = d3.select("#dashboard").append("svg")
             .attr("width", width + margin.left + margin.right)
@@ -84,13 +98,22 @@
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
+        const trackSvg = d3.select("#track").append("svg")
+            .attr("width", trackWidth)
+            .attr("height", trackHeight)
+            .append("g");
+
         const x = d3.scaleLinear().range([0, width]);
         const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+
+        // Scales for the position plot (X for horizontal, Z for vertical)
+        const trackX = d3.scaleLinear().range([0, trackWidth]);
+        const trackZ = d3.scaleLinear().range([trackHeight, 0]); // Inverted Z for plotting
 
         svg.append("g").attr("class", "x-axis").attr("transform", `translate(0,${height})`);
         svg.append("g").attr("class", "y-axis").call(d3.axisLeft(y));
 
-        // Add a legend to the graph
+        // Add a legend for throttle and brake
         svg.append("text")
             .attr("x", width - 100)
             .attr("y", 20)
@@ -103,9 +126,16 @@
             .attr("fill", "red")
             .text("Brake");
 
-        const addDataPoint = (newThrottle, newBrake, time) => {
+        const addDataPoint = (newThrottle, newBrake, newPositionX, newPositionZ, time) => {
             throttleData.push({ value: newThrottle, time });
             brakeData.push({ value: newBrake, time });
+            
+            positionData.push({ 
+                x: newPositionX, 
+                z: newPositionZ, 
+                throttle: newThrottle, 
+                brake: newBrake 
+            });
 
             throttleData = throttleData.filter(d => d.time >= time - MAX_TIME_WINDOW);
             brakeData = brakeData.filter(d => d.time >= time - MAX_TIME_WINDOW);
@@ -131,6 +161,46 @@
             svg.select(".x-axis").call(d3.axisBottom(x));
         };
 
+        const updateTrack = () => {
+            trackSvg.selectAll(".track-line").remove();
+
+            // Dynamically set the domain for the track based on the data range
+            const minX = d3.min(positionData, d => d.x);
+            const maxX = d3.max(positionData, d => d.x);
+            const minZ = d3.min(positionData, d => d.z);
+            const maxZ = d3.max(positionData, d => d.z);
+
+            // Add some padding to avoid data being too close to the edges
+            const padding = 30; // Increased padding
+            trackX.domain([minX - padding, maxX + padding]);
+            trackZ.domain([maxZ + padding, minZ - padding]); // Flip the Z domain
+
+            // Split the track into segments based on throttle and brake values
+            positionData.forEach((point, i) => {
+                if (i === 0) return; // Skip the first point
+
+                const prevPoint = positionData[i - 1];
+
+                // Determine color based on throttle and brake conditions
+                let color;
+                if (point.throttle > point.brake) {
+                    color = "blue"; // Throttle applied
+                } else if (point.brake > point.throttle) {
+                    color = "red"; // Brake applied
+                } else if (point.throttle === 0 && point.brake === 0) {
+                    color = "green"; // No throttle or brake
+                }
+
+                trackSvg.append("line")
+                    .attr("x1", trackX(prevPoint.x))
+                    .attr("y1", trackZ(prevPoint.z))
+                    .attr("x2", trackX(point.x))
+                    .attr("y2", trackZ(point.z))
+                    .style("stroke", color)
+                    .style("stroke-width", 2);
+            });
+        };
+
         const updateLatestData = (newData) => {
             const dataContainer = document.getElementById('latestData');
             dataContainer.innerHTML = `
@@ -143,13 +213,7 @@
                 <p>Fuel: ${newData.current_fuel}</p>
                 <p>RPM: ${newData.rpm}</p>
                 <p>Position X: ${newData.position_x}</p>
-                <p>Position Y: ${newData.position_y}</p>
                 <p>Position Z: ${newData.position_z}</p>
-                <p>Tyre Temp FL: ${newData.tyre_temp_FL}</p>
-                <p>Tyre Temp FR: ${newData.tyre_temp_FR}</p>
-                <p>Tyre Temp RL: ${newData.tyre_temp_rl}</p>
-                <p>Tyre Temp RR: ${newData.tyre_temp_rr}</p>
-                <p>Water Temp: ${newData.water_temp}</p>
             `;
         };
 
@@ -160,9 +224,10 @@
                 const newData = JSON.parse(event.data);
                 const relativeTime = (Date.now() - startTime) / 1000;
 
-                // Add throttle and brake data to the graph
-                addDataPoint(newData.throttle, newData.brake, relativeTime);
+                // Add throttle, brake, and position data
+                addDataPoint(newData.throttle, newData.brake, newData.position_x, newData.position_z, relativeTime);
                 updateChart();
+                updateTrack();
 
                 // Update the latest data box with current values
                 updateLatestData(newData);
