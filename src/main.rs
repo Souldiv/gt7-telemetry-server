@@ -71,7 +71,7 @@ async fn main() -> std::io::Result<()> {
         .with(log);
     let server = warp::serve(routes).bind(ws_addr);
 
-    println!("Server started on {}", ws_addr);
+    println!("🔗 Server started on {}...", ws_addr);
     let ws_server = tokio::spawn(server);
 
     let (_udp_result, _ws_result) = tokio::join!(udp_server, ws_server);
