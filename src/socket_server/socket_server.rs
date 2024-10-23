@@ -90,7 +90,7 @@ impl SocketServer {
 
                 // Timeout case
                 _ = time::sleep(timeout_duration) => {
-                    println!("Timeout occurred, no data received.");
+                    println!("⏳ Timeout occurred, no data received.");
                     // Handle timeout logic here, if needed
                     self.reset_socket().await?;
                     self.send_heartbeat().await;
@@ -116,7 +116,7 @@ impl SocketServer {
             .await
         {
             Ok(r_size) => {
-                // println!("Heartbeat sent, size: {}", r_size);
+                // println!("❤️ Heartbeat sent, size: {}", r_size);
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(e) => {
