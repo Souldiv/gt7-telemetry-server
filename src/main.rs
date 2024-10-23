@@ -8,11 +8,30 @@ use crate::server::handler;
 
 use std::net::SocketAddr;
 use std::convert::Infallible;
+use std::env;
 use warp::Filter;
 use tokio::sync::broadcast;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    // get args
+    let mut playstation_ip: String;
+    let mut ws_port: u16;
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 3 {
+        println!("Usage: {} <playstation_ip> <ws_binding_port>\ndefaults to 192.168.1.85 and 8080 if not provided", args[0]);
+        return Ok(());
+    } else if args.len() == 3 {
+        playstation_ip = args[1].clone();
+        ws_port = args[2].parse::<u16>().unwrap();
+    } else if args.len() == 2 {
+        playstation_ip = args[1].clone();
+        ws_port = 8080;
+    } else {
+        playstation_ip = String::from("192.168.1.85");
+        ws_port = 8080;
+    }
+
     let (tx, mut rx) = broadcast::channel::<GTData>(100);
 
     let tx2 = tx.clone();
@@ -20,10 +39,9 @@ async fn main() -> std::io::Result<()> {
     // socket server task
     let recv_port = 33740;
     let send_port = 33739;
-    let playstation_ip = String::from("192.168.1.85");
     let mut socket_server = SocketServer::new(recv_port, send_port, playstation_ip, tx).await?;
 
-    tokio::spawn(async move {
+    let udp_server = tokio::spawn(async move {
         socket_server.run().await
     });
 
@@ -40,7 +58,7 @@ async fn main() -> std::io::Result<()> {
     });
 
     // server
-    let ws_addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let ws_addr = SocketAddr::from(([127, 0, 0, 1], ws_port));
     let health_route = warp::path!("health").and_then(handler::health_handler);
     let ws_route = warp::path("ws")
         .and(warp::ws())
@@ -54,7 +72,9 @@ async fn main() -> std::io::Result<()> {
     let server = warp::serve(routes).bind(ws_addr);
 
     println!("Server started on {}", ws_addr);
-    tokio::spawn(server).await?;
+    let ws_server = tokio::spawn(server);
+
+    let (_udp_result, _ws_result) = tokio::join!(udp_server, ws_server);
 
     Ok(())
 }
