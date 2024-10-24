@@ -4,7 +4,7 @@ GT7 Telemetry Server is a server that listens for data from a GT7 UDP socket ser
 
 ## Installation
 
-Follow the instructions in the release section to install the server.
+You can either use the install script from the release section or download the binary and run it manually.
 
 ## Todo
 
@@ -37,6 +37,8 @@ Access the dashboard at `http://localhost:8080`.
 ```
 gt7_server <playstation_ip: Default 192.168.1.85> <websocket_port: Default 8080>
 ```
+
+![alt text](./examples/gt7.png)
 
 ## References
 
