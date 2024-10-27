@@ -80,9 +80,9 @@
     <script>
         let throttleData = [];
         let brakeData = [];
-        let positionData = []; // Store position data (X, Z, throttle, brake)
+        let positionData = []; // Store position data (X and Z)
         let startTime = Date.now();
-        let MAX_TIME_WINDOW = 10; // Default time window, adjustable by user
+        let MAX_TIME_WINDOW = 30; // Default time window, adjustable by user
 
         // Define margins and dimensions for the throttle and brake graph
         const margin = { top: 20, right: 30, bottom: 30, left: 40 },
@@ -126,22 +126,22 @@
             .attr("fill", "red")
             .text("Brake");
 
-        const addDataPoint = (newThrottle, newBrake, newPositionX, newPositionZ, time) => {
+        const addDataPoint = (newThrottle, newBrake, newPositionX, newPositionZ, time, in_pause) => {
+            isPaused = in_pause;
             throttleData.push({ value: newThrottle, time });
             brakeData.push({ value: newBrake, time });
             
-            positionData.push({ 
-                x: newPositionX, 
-                z: newPositionZ, 
-                throttle: newThrottle, 
-                brake: newBrake 
-            });
+            // Log position data to debug if necessary
+            // console.log('Position X:', newPositionX, 'Position Z:', newPositionZ);
+
+            positionData.push({ x: newPositionX, z: newPositionZ });
 
             throttleData = throttleData.filter(d => d.time >= time - MAX_TIME_WINDOW);
             brakeData = brakeData.filter(d => d.time >= time - MAX_TIME_WINDOW);
         };
 
         const updateChart = () => {
+            if (isPaused) return;
             const latestTime = throttleData.length > 0 ? throttleData[throttleData.length - 1].time : 0;
             const minTime = Math.max(0, latestTime - MAX_TIME_WINDOW);
 
@@ -162,6 +162,7 @@
         };
 
         const updateTrack = () => {
+            if (isPaused) return;
             trackSvg.selectAll(".track-line").remove();
 
             // Dynamically set the domain for the track based on the data range
@@ -171,34 +172,21 @@
             const maxZ = d3.max(positionData, d => d.z);
 
             // Add some padding to avoid data being too close to the edges
-            const padding = 30; // Increased padding
+            const padding = 20;
             trackX.domain([minX - padding, maxX + padding]);
             trackZ.domain([maxZ + padding, minZ - padding]); // Flip the Z domain
 
-            // Split the track into segments based on throttle and brake values
-            positionData.forEach((point, i) => {
-                if (i === 0) return; // Skip the first point
+            const trackLine = d3.line()
+                .x(d => trackX(d.x))
+                .y(d => trackZ(d.z));
 
-                const prevPoint = positionData[i - 1];
-
-                // Determine color based on throttle and brake conditions
-                let color;
-                if (point.throttle > point.brake) {
-                    color = "blue"; // Throttle applied
-                } else if (point.brake > point.throttle) {
-                    color = "red"; // Brake applied
-                } else if (point.throttle === 0 && point.brake === 0) {
-                    color = "green"; // No throttle or brake
-                }
-
-                trackSvg.append("line")
-                    .attr("x1", trackX(prevPoint.x))
-                    .attr("y1", trackZ(prevPoint.z))
-                    .attr("x2", trackX(point.x))
-                    .attr("y2", trackZ(point.z))
-                    .style("stroke", color)
-                    .style("stroke-width", 2);
-            });
+            trackSvg.append("path")
+                .datum(positionData)
+                .attr("class", "track-line")
+                .attr("d", trackLine)
+                .style("stroke", "green")
+                .style("fill", "none")
+                .style("stroke-width", 2);
         };
 
         const updateLatestData = (newData) => {
@@ -225,7 +213,7 @@
                 const relativeTime = (Date.now() - startTime) / 1000;
 
                 // Add throttle, brake, and position data
-                addDataPoint(newData.throttle, newData.brake, newData.position_x, newData.position_z, relativeTime);
+                addDataPoint(newData.throttle, newData.brake, newData.position_x, newData.position_z, relativeTime, newData.is_paused);
                 updateChart();
                 updateTrack();
 
